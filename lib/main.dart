@@ -10,61 +10,11 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tzdata;
-import 'package:appsflyer_sdk/appsflyer_sdk.dart' show AppsFlyerOptions, AppsflyerSdk;
-
+import 'package:appsflyer_sdk/appsflyer_sdk.dart'
+    show AppsFlyerOptions, AppsflyerSdk;
 
 import 'amoMenu.dart' show GameSelectionScreen;
 import 'amoPush.dart' show ObfuscatedWidget;
-
-Future<void> _msgBgHandler(RemoteMessage message) async {
-  print('BG MSG: ${message.data}');
-}
-
-// --- DeviceManager ---
-class DeviceManager {
-  String? deviceId;
-  String? instanceId = "instance-unique-id";
-  String? platformType;
-  String? platformVersion;
-  String? appVersion;
-  String? language;
-  String? timezone;
-  bool notificationsEnabled = true;
-
-  Future<void> initDevice() async {
-    final deviceInfo = DeviceInfoPlugin();
-    if (Platform.isAndroid) {
-      final info = await deviceInfo.androidInfo;
-      deviceId = info.id;
-      platformType = "android";
-      platformVersion = info.version.release;
-    } else if (Platform.isIOS) {
-      final info = await deviceInfo.iosInfo;
-      deviceId = info.identifierForVendor;
-      platformType = "ios";
-      platformVersion = info.systemVersion;
-    }
-    final packageInfo = await PackageInfo.fromPlatform();
-    appVersion = packageInfo.version;
-    language = Platform.localeName.split('_')[0];
-    timezone = tz.local.name;
-  }
-
-  Map<String, dynamic> toMap({String? fcmToken}) {
-    return {
-      "fcm_token": fcmToken ?? 'no_token',
-      "device_id": deviceId ?? 'no_device',
-      "app_name": "onepursuit",
-      "instance_id": instanceId ?? 'no_instance',
-      "platform": platformType ?? 'no_type',
-      "os_version": platformVersion ?? 'no_os',
-      "app_version": appVersion ?? 'no_app',
-      "language": language ?? 'en',
-      "timezone": timezone ?? 'UTC',
-      "push_enabled": notificationsEnabled,
-    };
-  }
-}
 
 // --- TokenChannel ---
 class TokenChannel {
@@ -79,12 +29,7 @@ class TokenChannel {
   }
 }
 
-// --- CosmosData и NebulaDev ---
-class CosmosData {
-  final String? nebulaMetrics;
-  final String? galaxyID;
-  CosmosData({this.nebulaMetrics, this.galaxyID});
-}
+// --- NebulaDev ---
 class NebulaDev {
   final String? meteorUID;
   final String? quantumSession;
@@ -118,8 +63,6 @@ class NebulaDev {
   };
 }
 
-
-
 class AmonjongLoader extends StatelessWidget {
   const AmonjongLoader({super.key});
   @override
@@ -145,18 +88,8 @@ class PortalScreen extends StatefulWidget {
 class _PortalScreenState extends State<PortalScreen> with WidgetsBindingObserver {
   late InAppWebViewController _webController;
 
-  final _cosmos = CosmosData(nebulaMetrics: "metrics_42", galaxyID: "galaxy_123");
-  final _nebulaDev = NebulaDev(
-    meteorUID: "meteor_abc",
-    quantumSession: "quantum_456",
-    vesselType: "spaceship",
-    vesselBuild: "os_2.1.1",
-    starAppBuild: "app_1.0.0",
-    userGalacticLocale: "en",
-    starlaneZone: "Andromeda",
-    cometPush: true,
-  );
-  final DeviceManager _deviceManager = DeviceManager();
+  // --- Реальные данные NebulaDev ---
+  NebulaDev? _nebulaDev;
 
   bool _fetching = false;
   bool _showPortal = true;
@@ -172,11 +105,16 @@ class _PortalScreenState extends State<PortalScreen> with WidgetsBindingObserver
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    Future.delayed(const Duration(seconds: 8), () async {
+      await _sendDataToWeb();
 
+      await _sendDeviceDataToWeb();
+    });
     tzdata.initializeTimeZones();
 
-    _initDeviceManager();
+    _initNebulaDev();
 
+    // --- слушаем токен всегда через TokenChannel ---
     TokenChannel.listen((token) {
       setState(() {
         fcmToken = token;
@@ -186,7 +124,6 @@ class _PortalScreenState extends State<PortalScreen> with WidgetsBindingObserver
     FirebaseMessaging.onBackgroundMessage(_msgBgHandler);
     _initAppsFlyer();
     _setupChannels();
-    _initData();
     _initFCM();
 
     FirebaseMessaging.onMessage.listen((RemoteMessage msg) {
@@ -205,16 +142,48 @@ class _PortalScreenState extends State<PortalScreen> with WidgetsBindingObserver
       }
     });
 
-    Future.delayed(const Duration(seconds: 6), () {
-      _sendDataToWeb();
-      sendDataRaw();
-      _sendDeviceDataToWeb();
+
+  }
+
+  Future<void> _initNebulaDev() async {
+    final deviceInfo = DeviceInfoPlugin();
+    String? meteorUID;
+    String? vesselType;
+    String? vesselBuild;
+
+    if (Platform.isAndroid) {
+      final info = await deviceInfo.androidInfo;
+      meteorUID = info.id;
+      vesselType = "android";
+      vesselBuild = info.version.release;
+    } else if (Platform.isIOS) {
+      final info = await deviceInfo.iosInfo;
+      meteorUID = info.identifierForVendor;
+      vesselType = "ios";
+      vesselBuild = info.systemVersion;
+    }
+
+    final packageInfo = await PackageInfo.fromPlatform();
+
+    final userGalacticLocale = Platform.localeName.split('_')[0];
+    final starlaneZone = tz.local.name;
+
+    setState(() {
+      _nebulaDev = NebulaDev(
+        meteorUID: meteorUID,
+        quantumSession: "session-${DateTime.now().millisecondsSinceEpoch}",
+        vesselType: vesselType,
+        vesselBuild: vesselBuild,
+        starAppBuild: packageInfo.version,
+        userGalacticLocale: userGalacticLocale,
+        starlaneZone: starlaneZone,
+        cometPush: true,
+      );
     });
   }
 
-  Future<void> _initDeviceManager() async {
-    await _deviceManager.initDevice();
-    setState(() {});
+  static Future<void> _msgBgHandler(RemoteMessage message) async {
+    print('BG MSG: ${message.data}');
   }
 
   @override
@@ -259,7 +228,8 @@ class _PortalScreenState extends State<PortalScreen> with WidgetsBindingObserver
   }
 
   void _resetUrl() {
-    _webController.loadUrl(urlRequest: URLRequest(url: WebUri("https://mahjong-master.click")));
+    _webController.loadUrl(
+        urlRequest: URLRequest(url: WebUri("https://mahjong-master.click")));
     setState(() {
       _currentUrl = "https://mahjong-master.click";
     });
@@ -292,10 +262,11 @@ class _PortalScreenState extends State<PortalScreen> with WidgetsBindingObserver
   }
 
   void _setupChannels() {
-    // FCM notification tap
-    MethodChannel('com.example.fcm/notification').setMethodCallHandler((call) async {
+    MethodChannel('com.example.fcm/notification')
+        .setMethodCallHandler((call) async {
       if (call.method == "onNotificationTap") {
-        final Map<String, dynamic> payload = Map<String, dynamic>.from(call.arguments);
+        final Map<String, dynamic> payload =
+        Map<String, dynamic>.from(call.arguments);
 
         print('Payload: $payload');
         print('Payload["uri"]: ${payload["uri"]}');
@@ -312,18 +283,16 @@ class _PortalScreenState extends State<PortalScreen> with WidgetsBindingObserver
     });
   }
 
-  void _initData() {
-    // Place for additional data inits if needed
-  }
-
   void _initFCM() async {
     FirebaseMessaging messaging = FirebaseMessaging.instance;
     await messaging.requestPermission(alert: true, badge: true, sound: true);
     await messaging.getToken();
-    // Token is handled via TokenChannel
+    // Token всегда прилетает через TokenChannel.listen
   }
 
   Future<void> _sendDataToWeb() async {
+    if (_nebulaDev == null) return;
+
     final data = {
       "content": {
         "af_data": _sith,
@@ -331,18 +300,11 @@ class _PortalScreenState extends State<PortalScreen> with WidgetsBindingObserver
         "fb_app_name": "amonjong",
         "app_name": "amonjong",
         "deep": null,
-        "bundle_identifier": "com.amonjongtwostones.famojing.stonesamong.amonjongtwostones",
-        "app_version": "1.0.0",
+        "bundle_identifier":
+        "com.amonjongtwostones.famojing.stonesamong.amonjongtwostones",
+        "app_version": _nebulaDev?.starAppBuild,
         "apple_id": "6748683192",
-        "fcm_token": fcmToken ?? "no_token",
-        "device_id": _nebulaDev.meteorUID ?? "no_device",
-        "instance_id": _nebulaDev.quantumSession ?? "no_instance",
-        "platform": _nebulaDev.vesselType ?? "no_type",
-        "os_version": _nebulaDev.vesselBuild ?? "no_os",
-        "app_version": _nebulaDev.starAppBuild ?? "no_app",
-        "language": _nebulaDev.userGalacticLocale ?? "en",
-        "timezone": _nebulaDev.starlaneZone ?? "UTC",
-        "push_enabled": _nebulaDev.cometPush,
+        ..._nebulaDev!.asPacket(token: fcmToken),
         "useruid": _falcon,
       },
     };
@@ -359,7 +321,8 @@ class _PortalScreenState extends State<PortalScreen> with WidgetsBindingObserver
   Future<void> _sendDeviceDataToWeb() async {
     setState(() => _isLoading = true);
     try {
-      final deviceMap = _deviceManager.toMap(fcmToken: fcmToken);
+      if (_nebulaDev == null) return;
+      final deviceMap = _nebulaDev!.asPacket(token: fcmToken);
       await _webController.evaluateJavascript(source: '''
       localStorage.setItem('app_data', JSON.stringify(${jsonEncode(deviceMap)}));
       ''');
@@ -368,9 +331,7 @@ class _PortalScreenState extends State<PortalScreen> with WidgetsBindingObserver
     }
   }
 
-  void sendDataRaw() {
-    print('sendDataRaw called');
-  }
+
 
   final List<ContentBlocker> _lll = [
     ContentBlocker(
@@ -429,7 +390,7 @@ class _PortalScreenState extends State<PortalScreen> with WidgetsBindingObserver
                 await controller.evaluateJavascript(
                   source: "console.log('Portal loaded!');",
                 );
-                await _sendDataToWeb();
+            //    await _sendDataToWeb();
                 await _sendDeviceDataToWeb();
                 setState(() {
                   _fetching = false;
