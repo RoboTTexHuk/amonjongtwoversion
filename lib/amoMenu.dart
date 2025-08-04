@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'amoGame.dart' show ExampleWebWidget;
+import 'amoTwoGame.dart' show ExampleWebWidgetTWO;
 
 
 
@@ -49,7 +50,7 @@ class GameSelectionScreen extends StatelessWidget {
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => ExampleWebWidget(
+                      builder: (_) => ExampleWebWidgetTWO(
                         "https://play.famobi.com/mahjong-master-2",
                       ),
                     ),

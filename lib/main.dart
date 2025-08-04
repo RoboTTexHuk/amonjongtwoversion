@@ -343,6 +343,7 @@ class _PortalScreenState extends State<PortalScreen> with WidgetsBindingObserver
 
   @override
   Widget build(BuildContext context) {
+    _setupChannels();
     return Scaffold(
       body: Stack(
         children: [

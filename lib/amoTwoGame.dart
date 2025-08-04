@@ -25,15 +25,15 @@ Future<void> msgBackgroundHandler(RemoteMessage msg) async {
   print("BG Data: ${msg.data}");
 }
 
-class ExampleWebWidget extends StatefulWidget with WidgetsBindingObserver  {
+class ExampleWebWidgetTWO extends StatefulWidget with WidgetsBindingObserver  {
   String paramA;
-  ExampleWebWidget(this.paramA, {super.key});
+  ExampleWebWidgetTWO(this.paramA, {super.key});
   @override
-  State<ExampleWebWidget> createState() => _ExampleWebWidgetState(paramA);
+  State<ExampleWebWidgetTWO> createState() => _ExampleWebWidgetTWOState(paramA);
 }
 
-class _ExampleWebWidgetState extends State<ExampleWebWidget> with WidgetsBindingObserver {
-  _ExampleWebWidgetState(this.initUrl);
+class _ExampleWebWidgetTWOState extends State<ExampleWebWidgetTWO> with WidgetsBindingObserver {
+  _ExampleWebWidgetTWOState(this.initUrl);
 
   late InAppWebViewController webCtrl;
   String? deviceId;
@@ -165,7 +165,7 @@ class _ExampleWebWidgetState extends State<ExampleWebWidget> with WidgetsBinding
         if (args["uri"] != null && !args["uri"].contains("Нет URI")) {
           Navigator.pushAndRemoveUntil(
             context,
-            MaterialPageRoute(builder: (context) => ExampleWebWidget(args["uri"])),
+            MaterialPageRoute(builder: (context) => ExampleWebWidgetTWO(args["uri"])),
                 (route) => false,
           );
         }
@@ -297,7 +297,7 @@ class _ExampleWebWidgetState extends State<ExampleWebWidget> with WidgetsBinding
         children: [
           InAppWebView(
             initialSettings: InAppWebViewSettings(
-              userAgent:"Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148",
+           //   userAgent:"Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148",
               javaScriptEnabled: true,
               disableDefaultErrorPage: true,
               mediaPlaybackRequiresUserGesture: false,
