@@ -272,7 +272,7 @@ class _PortalScreenState extends State<PortalScreen> with WidgetsBindingObserver
         print('Payload["uri"]: ${payload["uri"]}');
 
         final uri = payload["uri"];
-        if (uri != null && uri.toString().isNotEmpty) {
+        if (uri!= null && !uri.contains("Нет URI")) {
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(builder: (context) => ObfuscatedWidget(uri)),
