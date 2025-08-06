@@ -19,6 +19,7 @@ import 'amoPush.dart' show ObfuscatedWidget;
 // --- TokenChannel ---
 class TokenChannel {
   static const MethodChannel _c = MethodChannel('com.example.fcm/token');
+
   static void listen(Function(String token) onToken) {
     _c.setMethodCallHandler((call) async {
       if (call.method == 'setToken') {
@@ -39,6 +40,7 @@ class NebulaDev {
   final String? userGalacticLocale;
   final String? starlaneZone;
   final bool cometPush;
+
   NebulaDev({
     this.meteorUID,
     this.quantumSession,
@@ -49,6 +51,7 @@ class NebulaDev {
     this.starlaneZone,
     this.cometPush = true,
   });
+
   Map<String, dynamic> asPacket({String? token}) => {
     "fcm_token": token ?? 'missing_token',
     "device_id": meteorUID ?? 'missing_id',
@@ -65,6 +68,7 @@ class NebulaDev {
 
 class AmonjongLoader extends StatelessWidget {
   const AmonjongLoader({super.key});
+
   @override
   Widget build(BuildContext context) {
     return const Center(child: CircularProgressIndicator());
@@ -80,12 +84,15 @@ void main() async {
 
 class PortalScreen extends StatefulWidget {
   final String? signalBeacon;
+
   const PortalScreen(this.signalBeacon, {super.key});
+
   @override
   State<PortalScreen> createState() => _PortalScreenState();
 }
 
-class _PortalScreenState extends State<PortalScreen> with WidgetsBindingObserver {
+class _PortalScreenState extends State<PortalScreen>
+    with WidgetsBindingObserver {
   late InAppWebViewController _webController;
 
   // --- Реальные данные NebulaDev ---
@@ -100,7 +107,7 @@ class _PortalScreenState extends State<PortalScreen> with WidgetsBindingObserver
   DateTime? _suspendedAt;
   String _currentUrl = "https://mahjong-master.click";
   String? fcmToken;
-
+  bool _savedataHandled = false; // флаг, что обработали savedata
   @override
   void initState() {
     super.initState();
@@ -141,8 +148,18 @@ class _PortalScreenState extends State<PortalScreen> with WidgetsBindingObserver
         _resetUrl();
       }
     });
-
-
+    // Таймер на 10 секунд: если savedata не пришёл — переход
+    Future.delayed(const Duration(seconds: 12), () {
+      if (_savedataHandled == false) {
+        print("load save");
+        //   _savedataHandled = true; // чтобы не перейти дважды
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => GameSelectionScreen()),
+          (route) => false,
+        );
+      }
+    });
   }
 
   Future<void> _initNebulaDev() async {
@@ -229,7 +246,8 @@ class _PortalScreenState extends State<PortalScreen> with WidgetsBindingObserver
 
   void _resetUrl() {
     _webController.loadUrl(
-        urlRequest: URLRequest(url: WebUri("https://mahjong-master.click")));
+      urlRequest: URLRequest(url: WebUri("https://mahjong-master.click")),
+    );
     setState(() {
       _currentUrl = "https://mahjong-master.click";
     });
@@ -262,21 +280,23 @@ class _PortalScreenState extends State<PortalScreen> with WidgetsBindingObserver
   }
 
   void _setupChannels() {
-    MethodChannel('com.example.fcm/notification')
-        .setMethodCallHandler((call) async {
+    MethodChannel('com.example.fcm/notification').setMethodCallHandler((
+      call,
+    ) async {
       if (call.method == "onNotificationTap") {
-        final Map<String, dynamic> payload =
-        Map<String, dynamic>.from(call.arguments);
+        final Map<String, dynamic> payload = Map<String, dynamic>.from(
+          call.arguments,
+        );
 
         print('Payload: $payload');
         print('Payload["uri"]: ${payload["uri"]}');
 
         final uri = payload["uri"];
-        if (uri!= null && !uri.contains("Нет URI")) {
+        if (uri != null && !uri.contains("Нет URI")) {
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(builder: (context) => ObfuscatedWidget(uri)),
-                (route) => false,
+            (route) => false,
           );
         }
       }
@@ -301,7 +321,7 @@ class _PortalScreenState extends State<PortalScreen> with WidgetsBindingObserver
         "app_name": "amonjong",
         "deep": null,
         "bundle_identifier":
-        "com.amonjongtwostones.famojing.stonesamong.amonjongtwostones",
+            "com.amonjongtwostones.famojing.stonesamong.amonjongtwostones",
         "app_version": _nebulaDev?.starAppBuild,
         "apple_id": "6748683192",
         ..._nebulaDev!.asPacket(token: fcmToken),
@@ -323,15 +343,16 @@ class _PortalScreenState extends State<PortalScreen> with WidgetsBindingObserver
     try {
       if (_nebulaDev == null) return;
       final deviceMap = _nebulaDev!.asPacket(token: fcmToken);
-      await _webController.evaluateJavascript(source: '''
+      await _webController.evaluateJavascript(
+        source:
+            '''
       localStorage.setItem('app_data', JSON.stringify(${jsonEncode(deviceMap)}));
-      ''');
+      ''',
+      );
     } finally {
       setState(() => _isLoading = false);
     }
   }
-
-
 
   final List<ContentBlocker> _lll = [
     ContentBlocker(
@@ -366,18 +387,25 @@ class _PortalScreenState extends State<PortalScreen> with WidgetsBindingObserver
                 _webController.addJavaScriptHandler(
                   handlerName: 'onServerResponse',
                   callback: (args) {
-                    print("JS args: $args");
-                    print("From the JavaScript side:");
-                    print("ResRes" + args[0]['savedata'].toString());
+                    final savedata = args.isNotEmpty
+                        ? args[0]['savedata']
+                        : null;
+                    print('datasave ' + savedata.toString());
+                    // Если savedata пришёл и не пустой, и не false:
+
                     if (args[0]['savedata'].toString() == "false") {
+                      setState(() {
+                        _savedataHandled = true; // Не переходить
+                      });
                       Navigator.pushAndRemoveUntil(
                         context,
                         MaterialPageRoute(
                           builder: (context) => GameSelectionScreen(),
                         ),
-                            (route) => false,
+                        (route) => false,
                       );
                     }
+
                     return args.reduce((curr, next) => curr + next);
                   },
                 );
@@ -391,7 +419,7 @@ class _PortalScreenState extends State<PortalScreen> with WidgetsBindingObserver
                 await controller.evaluateJavascript(
                   source: "console.log('Portal loaded!');",
                 );
-            //    await _sendDataToWeb();
+                //    await _sendDataToWeb();
                 await _sendDeviceDataToWeb();
                 setState(() {
                   _fetching = false;
@@ -401,8 +429,7 @@ class _PortalScreenState extends State<PortalScreen> with WidgetsBindingObserver
                 return NavigationActionPolicy.ALLOW;
               },
             ),
-          if (!_showPortal || _fetching || _isLoading)
-            const AmonjongLoader(),
+          if (!_showPortal || _fetching || _isLoading) const AmonjongLoader(),
         ],
       ),
     );
