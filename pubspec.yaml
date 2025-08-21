@@ -46,12 +46,13 @@ dependencies:
   shared_preferences: ^2.2.2
   timezone: ^0.9.2
 
-  appsflyer_sdk: ^6.11.0
+  appsflyer_sdk: ^6.17.1
   firebase_core: ^2.30.0
   firebase_messaging: ^14.7.19
   flutter_inappwebview: ^6.0.0
 
   logger: ^2.2.0
+  url_launcher: ^6.3.0
 
 dev_dependencies:
   flutter_test:

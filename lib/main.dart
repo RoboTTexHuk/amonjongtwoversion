@@ -10,8 +10,8 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tzdata;
-import 'package:appsflyer_sdk/appsflyer_sdk.dart'
-    show AppsFlyerOptions, AppsflyerSdk;
+import 'package:appsflyer_sdk/appsflyer_sdk.dart' show AppsFlyerOptions, AppsflyerSdk;
+import 'package:url_launcher/url_launcher.dart';
 
 import 'amoMenu.dart' show GameSelectionScreen;
 import 'amoPush.dart' show ObfuscatedWidget;
@@ -66,15 +66,6 @@ class NebulaDev {
   };
 }
 
-class AmonjongLoader extends StatelessWidget {
-  const AmonjongLoader({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(child: CircularProgressIndicator());
-  }
-}
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   tzdata.initializeTimeZones();
@@ -91,8 +82,7 @@ class PortalScreen extends StatefulWidget {
   State<PortalScreen> createState() => _PortalScreenState();
 }
 
-class _PortalScreenState extends State<PortalScreen>
-    with WidgetsBindingObserver {
+class _PortalScreenState extends State<PortalScreen> with WidgetsBindingObserver {
   late InAppWebViewController _webController;
 
   // --- Реальные данные NebulaDev ---
@@ -108,13 +98,35 @@ class _PortalScreenState extends State<PortalScreen>
   String _currentUrl = "https://mahjong-master.click";
   String? fcmToken;
   bool _savedataHandled = false; // флаг, что обработали savedata
+
+  // --- External platform allowlists ---
+  // Схемы, которые считаются внешними платформами
+  final Set<String> _externalPlatformSchemes = {
+    'tg',
+    'telegram',
+    'whatsapp',
+    'mailto',
+    'bnl',
+  };
+
+  // Хосты, которые считаем внешними (если ссылка http/https)
+  final Set<String> _externalPlatformHosts = {
+    't.me',
+    'telegram.me',
+    'telegram.org',
+    'wa.me',
+    'api.whatsapp.com',
+    'mail.google.com',
+    'gmail.com',
+    'bnl.com',
+  };
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     Future.delayed(const Duration(seconds: 8), () async {
       await _sendDataToWeb();
-
       await _sendDeviceDataToWeb();
     });
     tzdata.initializeTimeZones();
@@ -131,7 +143,7 @@ class _PortalScreenState extends State<PortalScreen>
     FirebaseMessaging.onBackgroundMessage(_msgBgHandler);
     _initAppsFlyer();
     _setupChannels();
-    _initFCM();
+
 
     FirebaseMessaging.onMessage.listen((RemoteMessage msg) {
       if (msg.data['uri'] != null) {
@@ -148,15 +160,15 @@ class _PortalScreenState extends State<PortalScreen>
         _resetUrl();
       }
     });
-    // Таймер на 10 секунд: если savedata не пришёл — переход
+
+    // Таймер на 10 секунд: если savedata не пришёл -- переход
     Future.delayed(const Duration(seconds: 12), () {
       if (_savedataHandled == false) {
         print("load save");
-        //   _savedataHandled = true; // чтобы не перейти дважды
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (context) => GameSelectionScreen()),
-          (route) => false,
+              (route) => false,
         );
       }
     });
@@ -280,9 +292,7 @@ class _PortalScreenState extends State<PortalScreen>
   }
 
   void _setupChannels() {
-    MethodChannel('com.example.fcm/notification').setMethodCallHandler((
-      call,
-    ) async {
+    MethodChannel('com.example.fcm/notification').setMethodCallHandler((call) async {
       if (call.method == "onNotificationTap") {
         final Map<String, dynamic> payload = Map<String, dynamic>.from(
           call.arguments,
@@ -296,19 +306,14 @@ class _PortalScreenState extends State<PortalScreen>
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(builder: (context) => ObfuscatedWidget(uri)),
-            (route) => false,
+                (route) => false,
           );
         }
       }
     });
   }
 
-  void _initFCM() async {
-    FirebaseMessaging messaging = FirebaseMessaging.instance;
-    await messaging.requestPermission(alert: true, badge: true, sound: true);
-    await messaging.getToken();
-    // Token всегда прилетает через TokenChannel.listen
-  }
+
 
   Future<void> _sendDataToWeb() async {
     if (_nebulaDev == null) return;
@@ -320,8 +325,7 @@ class _PortalScreenState extends State<PortalScreen>
         "fb_app_name": "amonjong",
         "app_name": "amonjong",
         "deep": null,
-        "bundle_identifier":
-            "com.amonjongtwostones.famojing.stonesamong.amonjongtwostones",
+        "bundle_identifier": "com.amonjongtwostones.famojing.stonesamong.amonjongtwostones",
         "app_version": _nebulaDev?.starAppBuild,
         "apple_id": "6748683192",
         ..._nebulaDev!.asPacket(token: fcmToken),
@@ -344,8 +348,7 @@ class _PortalScreenState extends State<PortalScreen>
       if (_nebulaDev == null) return;
       final deviceMap = _nebulaDev!.asPacket(token: fcmToken);
       await _webController.evaluateJavascript(
-        source:
-            '''
+        source: '''
       localStorage.setItem('app_data', JSON.stringify(${jsonEncode(deviceMap)}));
       ''',
       );
@@ -359,8 +362,112 @@ class _PortalScreenState extends State<PortalScreen>
       trigger: ContentBlockerTrigger(urlFilter: ".*.doubleclick.net/.*"),
       action: ContentBlockerAction(type: ContentBlockerActionType.BLOCK),
     ),
-    // ... можно добавить остальные фильтры ...
   ];
+
+  // --- EMAIL helpers ---
+  bool _isBareEmailUri(Uri uri) {
+    final s = uri.scheme;
+    if (s.isNotEmpty) return false;
+    final raw = uri.toString();
+    return raw.contains('@') && !raw.contains(' ');
+  }
+
+  Uri _convertBareEmailToMailto(Uri uri) {
+    final full = uri.toString();
+    final parts = full.split('?');
+    final email = parts.first;
+    final qp = parts.length > 1 ? Uri.splitQueryString(parts[1]) : <String, String>{};
+    return Uri(
+      scheme: 'mailto',
+      path: email,
+      queryParameters: qp.isEmpty ? null : qp,
+    );
+  }
+
+  // --- External platform links ---
+  bool _isExternalPlatformLink(Uri uri) {
+    final scheme = uri.scheme.toLowerCase();
+    if (_externalPlatformSchemes.contains(scheme)) return true;
+
+    if (scheme == 'http' || scheme == 'https') {
+      final host = uri.host.toLowerCase();
+      if (_externalPlatformHosts.contains(host)) return true;
+    }
+    return false;
+  }
+
+  Uri _normalizeToWebUri(Uri uri) {
+    final scheme = uri.scheme.toLowerCase();
+
+    // Telegram
+    if (scheme == 'tg' || scheme == 'telegram') {
+      final qp = uri.queryParameters;
+      final domain = qp['domain'];
+      if (domain != null && domain.isNotEmpty) {
+        return Uri.https('t.me', '/$domain', {
+          if (qp['start'] != null) 'start': qp['start']!,
+        });
+      }
+      final path = uri.path.isNotEmpty ? uri.path : '';
+      return Uri.https('t.me', '/$path', uri.queryParameters.isEmpty ? null : uri.queryParameters);
+    }
+
+    // WhatsApp
+    if (scheme == 'whatsapp') {
+      final qp = uri.queryParameters;
+      final phone = qp['phone'];
+      final text = qp['text'];
+      if (phone != null && phone.isNotEmpty) {
+        return Uri.https('wa.me', '/${_digitsAndPlus(phone)}', {if (text != null && text.isNotEmpty) 'text': text});
+      }
+      return Uri.https('wa.me', '/', {if (text != null && text.isNotEmpty) 'text': text});
+    }
+
+    // BNL
+    if (scheme == 'bnl') {
+      final newPath = uri.path.isNotEmpty ? uri.path : '';
+      return Uri.https('bnl.com', '/$newPath', uri.queryParameters.isEmpty ? null : uri.queryParameters);
+    }
+
+    return uri;
+  }
+
+  // --- Mail via in-app browser (Gmail Web) ---
+  Future<bool> _openMailViaInAppBrowser(Uri mailtoUri) async {
+    final gmailUri = _gmailComposeFromMailto(mailtoUri);
+    return await _openInAppHttpBrowser(gmailUri);
+  }
+
+  Uri _gmailComposeFromMailto(Uri mailto) {
+    final qp = mailto.queryParameters;
+    final params = <String, String>{
+      'view': 'cm',
+      'fs': '1',
+      if (mailto.path.isNotEmpty) 'to': mailto.path,
+      if ((qp['subject'] ?? '').isNotEmpty) 'su': qp['subject']!,
+      if ((qp['body'] ?? '').isNotEmpty) 'body': qp['body']!,
+      if ((qp['cc'] ?? '').isNotEmpty) 'cc': qp['cc']!,
+      if ((qp['bcc'] ?? '').isNotEmpty) 'bcc': qp['bcc']!,
+    };
+    return Uri.https('mail.google.com', '/mail/', params);
+  }
+
+  // --- Open http/https in in-app browser ---
+  Future<bool> _openInAppHttpBrowser(Uri uri) async {
+    try {
+      if (await launchUrl(uri, mode: LaunchMode.inAppBrowserView)) return true;
+      return await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      debugPrint('openInAppBrowser error: $e; url=$uri');
+      try {
+        return await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } catch (_) {
+        return false;
+      }
+    }
+  }
+
+  String _digitsAndPlus(String input) => input.replaceAll(RegExp(r'[^0-9+]'), '');
 
   @override
   Widget build(BuildContext context) {
@@ -387,12 +494,9 @@ class _PortalScreenState extends State<PortalScreen>
                 _webController.addJavaScriptHandler(
                   handlerName: 'onServerResponse',
                   callback: (args) {
-                    final savedata = args.isNotEmpty
-                        ? args[0]['savedata']
-                        : null;
+                    final savedata = args.isNotEmpty ? args[0]['savedata'] : null;
                     print('datasave ' + savedata.toString());
                     // Если savedata пришёл и не пустой, и не false:
-
                     if (args[0]['savedata'].toString() == "false") {
                       setState(() {
                         _savedataHandled = true; // Не переходить
@@ -402,10 +506,13 @@ class _PortalScreenState extends State<PortalScreen>
                         MaterialPageRoute(
                           builder: (context) => GameSelectionScreen(),
                         ),
-                        (route) => false,
+                            (route) => false,
                       );
+                    } else {
+                      setState(() {
+                        _savedataHandled = true; // Не переходить
+                      });
                     }
-
                     return args.reduce((curr, next) => curr + next);
                   },
                 );
@@ -426,10 +533,36 @@ class _PortalScreenState extends State<PortalScreen>
                 });
               },
               shouldOverrideUrlLoading: (controller, navigationAction) async {
+                final webUri = navigationAction.request.url;
+                final uri = webUri == null ? null : Uri.tryParse(webUri.toString());
+
+                if (uri == null) {
+                  return NavigationActionPolicy.ALLOW;
+                }
+
+                // 1) "Голый" email -> mailto
+                if (_isBareEmailUri(uri)) {
+                  final mailto = _convertBareEmailToMailto(uri);
+                  await _openMailViaInAppBrowser(mailto);
+                  return NavigationActionPolicy.CANCEL;
+                }
+
+                // 2) mailto:
+                if (uri.scheme.toLowerCase() == 'mailto') {
+                  await _openMailViaInAppBrowser(uri);
+                  return NavigationActionPolicy.CANCEL;
+                }
+
+                // 3) внешние платформы: нормализуем к web и открываем во встроенном/внешнем браузере
+                if (_isExternalPlatformLink(uri)) {
+                  final normalized = _normalizeToWebUri(uri);
+                  await _openInAppHttpBrowser(normalized);
+                  return NavigationActionPolicy.CANCEL;
+                }
+
                 return NavigationActionPolicy.ALLOW;
               },
             ),
-          if (!_showPortal || _fetching || _isLoading) const AmonjongLoader(),
         ],
       ),
     );

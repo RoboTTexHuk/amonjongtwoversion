@@ -1,10 +1,12 @@
 PODS:
-  - appsflyer_sdk (6.16.2):
-    - AppsFlyerFramework (= 6.16.2)
+  - appsflyer_sdk (6.17.1):
+    - appsflyer_sdk/Core (= 6.17.1)
+  - appsflyer_sdk/Core (6.17.1):
+    - AppsFlyerFramework (= 6.17.1)
     - Flutter
-  - AppsFlyerFramework (6.16.2):
-    - AppsFlyerFramework/Main (= 6.16.2)
-  - AppsFlyerFramework/Main (6.16.2)
+  - AppsFlyerFramework (6.17.1):
+    - AppsFlyerFramework/Main (= 6.17.1)
+  - AppsFlyerFramework/Main (6.17.1)
   - device_info_plus (0.0.1):
     - Flutter
   - Firebase/CoreOnly (10.25.0):
@@ -93,6 +95,8 @@ PODS:
   - shared_preferences_foundation (0.0.1):
     - Flutter
     - FlutterMacOS
+  - url_launcher_ios (0.0.1):
+    - Flutter
 
 DEPENDENCIES:
   - appsflyer_sdk (from `.symlinks/plugins/appsflyer_sdk/ios`)
@@ -105,6 +109,7 @@ DEPENDENCIES:
   - package_info_plus (from `.symlinks/plugins/package_info_plus/ios`)
   - path_provider_foundation (from `.symlinks/plugins/path_provider_foundation/darwin`)
   - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
+  - url_launcher_ios (from `.symlinks/plugins/url_launcher_ios/ios`)
 
 SPEC REPOS:
   trunk:
@@ -141,10 +146,12 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/path_provider_foundation/darwin"
   shared_preferences_foundation:
     :path: ".symlinks/plugins/shared_preferences_foundation/darwin"
+  url_launcher_ios:
+    :path: ".symlinks/plugins/url_launcher_ios/ios"
 
 SPEC CHECKSUMS:
-  appsflyer_sdk: b8bf0ef73cadbebbad020a719ebc9bb42fe20526
-  AppsFlyerFramework: fe5303bffcdfd941d5f570c2d21eaaea982e7bdc
+  appsflyer_sdk: 1504e8fe5621e207848bd06825d86afd7d14526c
+  AppsFlyerFramework: 11ef2dea3fa755f9ed8ba53267012ee1c62d7dc0
   device_info_plus: 97af1d7e84681a90d0693e63169a5d50e0839a0d
   Firebase: 0312a2352584f782ea56f66d91606891d4607f06
   firebase_core: a626d00494efa398e7c54f25f1454a64c8abf197
@@ -164,7 +171,8 @@ SPEC CHECKSUMS:
   path_provider_foundation: 2b6b4c569c0fb62ec74538f866245ac84301af46
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
   shared_preferences_foundation: fcdcbc04712aee1108ac7fda236f363274528f78
+  url_launcher_ios: 5334b05cef931de560670eeae103fd3e431ac3fe
 
-PODFILE CHECKSUM: 4305caec6b40dde0ae97be1573c53de1882a07e5
+PODFILE CHECKSUM: 20e260c9bb3f61194c661a4ba028da86e4f3ed96
 
 COCOAPODS: 1.16.2
